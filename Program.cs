@@ -57,7 +57,7 @@ namespace MandelbrotAvalonia
 
         public MainWindow()
         {
-            Title = "Mandelbrot Interactive Navigator (Left Click: Zoom In / Right Click: Zoom Out)";
+            Title = "Mandelbrot Explorer (Drag to Move / Scroll Wheel to Zoom)";
             Width = 800;
             Height = 600;
 
@@ -66,9 +66,11 @@ namespace MandelbrotAvalonia
 
             Resized += (s, e) => { InitBitmap(); RenderFractal(); };
 
+            // 마우스 이벤트 등록 (드래그 & 휠)
             PointerPressed += OnPointerPressed;
             PointerMoved += OnPointerMoved;
             PointerReleased += OnPointerReleased;
+            PointerWheelChanged += OnPointerWheelChanged;
 
             InitBitmap();
             RenderFractal();
@@ -88,38 +90,17 @@ namespace MandelbrotAvalonia
             _imageControl.Source = _bitmap;
         }
 
+        #region Mouse Events (Drag & Scroll)
+
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             var point = e.GetCurrentPoint(this);
-            Point mousePos = point.Position;
-
-            double currentWidth = _widthRange / _zoom;
-            double currentHeight = _heightRange / _zoom;
-            double minX = _targetX - (currentWidth / 2.0);
-            double minY = _targetY - (currentHeight / 2.0);
-
-            double clickedRealX = minX + (mousePos.X / ClientSize.Width) * currentWidth;
-            double clickedRealY = minY + (mousePos.Y / ClientSize.Height) * currentHeight;
-
+            
+            // 마우스 좌클릭 시 드래그 시작
             if (point.Properties.IsLeftButtonPressed)
             {
-                _targetX = clickedRealX;
-                _targetY = clickedRealY;
-                _zoom *= 2.0;
-
                 _isDragging = true;
-                _lastMousePosition = mousePos;
-
-                RenderFractal();
-            }
-            else if (point.Properties.IsRightButtonPressed)
-            {
-                _targetX = clickedRealX;
-                _targetY = clickedRealY;
-                _zoom /= 2.0;
-                if (_zoom < 0.5) _zoom = 0.5;
-
-                RenderFractal();
+                _lastMousePosition = point.Position;
             }
         }
 
@@ -130,6 +111,7 @@ namespace MandelbrotAvalonia
             Point currentMousePos = e.GetPosition(this);
             Vector delta = _lastMousePosition - currentMousePos;
 
+            // 마우스 이동량을 복소수 평면 스케일로 변환하여 중심 위치 이동
             double currentWidth = _widthRange / _zoom;
             double currentHeight = _heightRange / _zoom;
 
@@ -148,6 +130,38 @@ namespace MandelbrotAvalonia
                 _isDragging = false;
             }
         }
+
+        private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            Point mousePos = e.GetPosition(this);
+
+            // 현재 마우스 포인터 위치의 복소수 좌표 계산
+            double currentWidth = _widthRange / _zoom;
+            double currentHeight = _heightRange / _zoom;
+            double minX = _targetX - (currentWidth / 2.0);
+            double minY = _targetY - (currentHeight / 2.0);
+
+            double mouseRealX = minX + (mousePos.X / ClientSize.Width) * currentWidth;
+            double mouseRealY = minY + (mousePos.Y / ClientSize.Height) * currentHeight;
+
+            // 휠 업/다운 배율 설정 (위로 굴리면 확대, 아래로 굴리면 축소)
+            double zoomFactor = e.Delta.Y > 0 ? 1.25 : 0.8;
+            double newZoom = _zoom * zoomFactor;
+
+            if (newZoom < 0.5) newZoom = 0.5; // 최소 줌 제한
+
+            // 마우스 커서 위치를 기준점(Pivot)으로 확대/축소되도록 _targetX, _targetY 재조정
+            double newWidth = _widthRange / newZoom;
+            double newHeight = _heightRange / newZoom;
+
+            _targetX = mouseRealX - (mousePos.X / ClientSize.Width - 0.5) * newWidth;
+            _targetY = mouseRealY - (mousePos.Y / ClientSize.Height - 0.5) * newHeight;
+            _zoom = newZoom;
+
+            RenderFractal();
+        }
+
+        #endregion
 
         private unsafe void RenderFractal()
         {
@@ -178,6 +192,7 @@ namespace MandelbrotAvalonia
                         double cx = minX + (x / (double)width) * currentWidth;
                         int iter = GetMandelbrotIterations(cx, cy);
 
+                        // 각 픽셀에 색상을 칠함
                         byte r = 0, g = 0, b = 0;
                         if (iter < MaxIterations)
                         {
@@ -199,16 +214,24 @@ namespace MandelbrotAvalonia
             _imageControl.InvalidateVisual();
         }
 
+        // 핵심 수학 연산
         private int GetMandelbrotIterations(double cx, double cy)
-        {
-            double zx = 0.0, zy = 0.0;
+        { // cx, cy는 복소평면의 한 점
+            // 현재 위치의 x(실수부), y(허수부)
+            double zx = 0.0, zy = 0.0; 
+            // x, y의 제곱
             double zx2 = 0.0, zy2 = 0.0;
             int iter = 0;
 
-            while (zx2 + zy2 <= 4.0 && iter < MaxIterations)
+            // 반지름이 2인 원. 이 계산이 MaxIteration까지 반복되도 점이 갇혀있다면 검은색으로 칠해짐.
+            while (zx2 + zy2 <= 10 && iter < MaxIterations)
             {
+                // 새로운 허수부
                 zy = 2.0 * zx * zy + cy;
+                // 새로운 실수부
                 zx = zx2 - zy2 + cx;
+
+                // 제곱
                 zx2 = zx * zx;
                 zy2 = zy * zy;
                 iter++;

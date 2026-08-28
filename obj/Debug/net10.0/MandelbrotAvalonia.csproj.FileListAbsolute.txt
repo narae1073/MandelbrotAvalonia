@@ -83,3 +83,4 @@
 /home/jasen/Programming/MandelbrotAvalonia/obj/Debug/net10.0/MandelbrotAvalonia.pdb
 /home/jasen/Programming/MandelbrotAvalonia/obj/Debug/net10.0/MandelbrotAvalonia.genruntimeconfig.cache
 /home/jasen/Programming/MandelbrotAvalonia/obj/Debug/net10.0/ref/MandelbrotAvalonia.dll
+/home/jasen/Programming/MandelbrotAvalonia/obj/Debug/net10.0/MandelbrotAvalonia.sourcelink.json
